@@ -72,7 +72,21 @@ class Player:
                 
         # Try moving on Y axis only
         self.y = new_y
-                
+
+        for tree in terrain.trees:
+            if ((self.x-tree['x'])**2+(self.y-tree['y'])**2) < (tree['size']+(self.size))**2:
+                self.x = old_x
+                self.y = old_y 
+
+        for rock in terrain.rocks:
+            if ((self.x-rock['x'])**2+(self.y-rock['y'])**2) < (rock['size']+(self.size))**2:
+                self.x = old_x
+                self.y = old_y
+
+        if ((self.x-(WORLD_WIDTH/2))**2+(self.y-(WORLD_HEIGHT/2))**2) < (terrain.fire_size+(self.size))**2:
+            self.x = old_x
+            self.y = old_y                            
+
         self.x = max(self.size, min(self.x, WORLD_WIDTH - self.size))
         self.y = max(self.size, min(self.y, WORLD_HEIGHT - self.size))
                 
@@ -85,46 +99,22 @@ class Terrain:
     def __init__(self):
         self.trees = []
         self.rocks = []
-        self.buildings = []
-        
-        # Reduced terrain - only 10% of original trees and 5% of rocks
+        self.fire_size = 25
+
+        # Reduced terrain - only 10% of original trees and 10% of rocks
         for _ in range(10):
             x = random.randint(0, WORLD_WIDTH)
             y = random.randint(0, WORLD_HEIGHT)
             size = random.randint(15, 30)
             self.trees.append({'x': x, 'y': y, 'size': size})
         
-        for _ in range(3):
+        for _ in range(10):
             x = random.randint(0, WORLD_WIDTH)
             y = random.randint(0, WORLD_HEIGHT)
             size = random.randint(10, 20)
             self.rocks.append({'x': x, 'y': y, 'size': size})
         
-        # Add buildings
-        for _ in range(8):
-            width = random.randint(80, 150)
-            height = random.randint(60, 120)
-            x = random.randint(width//2, WORLD_WIDTH - width//2)
-            y = random.randint(height//2, WORLD_HEIGHT - height//2)
-            self.buildings.append({'x': x, 'y': y, 'width': width, 'height': height})
-    
-    def draw(self, screen, camera):
-        # Draw buildings first (behind other objects)
-        for building in self.buildings:
-            screen_x = building['x'] - camera.x - building['width']//2
-            screen_y = building['y'] - camera.y - building['height']//2
-            if (-building['width'] <= screen_x <= SCREEN_WIDTH + building['width'] and 
-                -building['height'] <= screen_y <= SCREEN_HEIGHT + building['height']):
-                # Building body
-                pygame.draw.rect(screen, DARK_GRAY, (int(screen_x), int(screen_y), building['width'], building['height']))
-                # Building outline
-                pygame.draw.rect(screen, BLACK, (int(screen_x), int(screen_y), building['width'], building['height']), 2)
-                # Windows
-                window_size = 8
-                for wx in range(int(screen_x) + 15, int(screen_x) + building['width'] - 10, 20):
-                    for wy in range(int(screen_y) + 15, int(screen_y) + building['height'] - 10, 20):
-                        pygame.draw.rect(screen, LIGHT_GRAY, (wx, wy, window_size, window_size))
-        
+    def draw(self, screen, camera):        
         for tree in self.trees:
             screen_x = tree['x'] - camera.x
             screen_y = tree['y'] - camera.y
@@ -136,6 +126,14 @@ class Terrain:
             screen_y = rock['y'] - camera.y
             if -rock['size'] <= screen_x <= SCREEN_WIDTH + rock['size'] and -rock['size'] <= screen_y <= SCREEN_HEIGHT + rock['size']:
                 pygame.draw.circle(screen, GRAY, (int(screen_x), int(screen_y)), rock['size'])
+
+        # Drawing fire
+        screen_x = (WORLD_WIDTH/2) - camera.x
+        screen_y = (WORLD_HEIGHT/2) - camera.y
+        pygame.draw.circle(screen, ORANGE, (int(screen_x), int(screen_y)), self.fire_size)
+        pygame.draw.circle(screen, YELLOW, (int(screen_x), int(screen_y)), self.fire_size-7)
+        pygame.draw.circle(screen, WHITE, (int(screen_x), int(screen_y)), self.fire_size*4, 2)
+        
 
 def find_safe_spawn_location(terrain, size):
     max_attempts = 100
