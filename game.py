@@ -100,6 +100,7 @@ class Terrain:
         self.trees = []
         self.rocks = []
         self.fire_size = 25
+        self.cut_at = pygame.time.get_ticks()
 
         # Reduced terrain - only 10% of original trees and 10% of rocks
         for _ in range(10):
@@ -134,7 +135,17 @@ class Terrain:
         pygame.draw.circle(screen, YELLOW, (int(screen_x), int(screen_y)), self.fire_size-7)
         pygame.draw.circle(screen, WHITE, (int(screen_x), int(screen_y)), self.fire_size*4, 2)
         
-
+    def terrain_damage_handler(self, player, x, y):
+        for tree in self.trees:
+            if ((tree['x']-x)**2+(tree['y']-y)**2) < (tree['size'])**2:
+                tree['size'] -= 2
+    def grow_tree(self):
+        for tree in self.trees:
+            if tree['size'] <= tree['size']/2:
+                tree['size'] = 0
+                self.cut_at = pygame.time.get_ticks()
+            if pygame.time.get_ticks-self.cut_at > 60000:
+                tree['size'] = random.randint(15,30)
 def find_safe_spawn_location(terrain, size):
     max_attempts = 100
     for _ in range(max_attempts):
@@ -178,7 +189,13 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-                    
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 1:
+                    x, y=pygame.mouse.get_pos()
+                    x += camera.x
+                    y += camera.y
+                    terrain.terrain_damage_handler(player, x, y)
+                    terrain.grow_tree()        
         keys = pygame.key.get_pressed()
                         
         player.update(keys, terrain)

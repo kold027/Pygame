@@ -1,24 +1,59 @@
-import pygame
+from flask import Flask, render_template, request, redirect, url_for
+from threading import Timer
 
-pygame.init()
-screen = pygame.display.set_mode((400, 400))
+app = Flask(__name__)
 
-# make a surface with a rectangle on it
-rect_surf = pygame.Surface((100, 100), pygame.SRCALPHA)  
-pygame.draw.rect(rect_surf, (255, 0, 0), rect_surf.get_rect())
+# Game state
+players = {}
+choices = {}
+game_active = False
+results_ready = False
 
-# rotate it 45 degrees once
-rotated_surf = pygame.transform.rotate(rect_surf, 45)
-rotated_rect = rotated_surf.get_rect(center=(200, 200))  # put it in the middle
+@app.route("/")
+def index():
+    return render_template("index.html")
 
-running = True
-while running:
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
+@app.route("/join", methods=["POST"])
+def join():
+    username = request.form["username"]
+    if username not in players:
+        players[username] = None
+    return redirect(url_for("play", username=username))
 
-    screen.fill((30, 30, 30))
-    screen.blit(rotated_surf, rotated_rect)
-    pygame.display.flip()
+@app.route("/play/<username>")
+def play(username):
+    if results_ready:
+        return redirect(url_for("results"))
+    return render_template("play.html", username=username, game_active=game_active)
 
-pygame.quit()
+@app.route("/choose/<username>", methods=["POST"])
+def choose(username):
+    choice = request.form["choice"]
+    players[username] = choice
+    return redirect(url_for("play", username=username))
+
+@app.route("/host")
+def host():
+    global game_active, results_ready
+    return render_template("host.html", players=players, game_active=game_active, results_ready=results_ready)
+
+@app.route("/start", methods=["POST"])
+def start():
+    global game_active, results_ready
+    game_active = True
+    results_ready = False
+    Timer(30.0, end_game).start()
+    return redirect(url_for("host"))
+
+def end_game():
+    global game_active, results_ready, choices
+    game_active = False
+    results_ready = True
+    choices = players.copy()
+
+@app.route("/results")
+def results():
+    return render_template("results.html", choices=choices)
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000, debug=True)
