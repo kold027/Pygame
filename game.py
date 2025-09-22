@@ -100,20 +100,21 @@ class Terrain:
         self.trees = []
         self.rocks = []
         self.fire_size = 25
-        self.cut_at = pygame.time.get_ticks()
-
+        
         # Reduced terrain - only 10% of original trees and 10% of rocks
         for _ in range(10):
             x = random.randint(0, WORLD_WIDTH)
             y = random.randint(0, WORLD_HEIGHT)
             size = random.randint(15, 30)
-            self.trees.append({'x': x, 'y': y, 'size': size})
+            self.tree_check = size
+            self.trees.append({'x': x, 'y': y, 'size': size, 'vaule': self.tree_check, 'cut': pygame.time.get_ticks()})
         
         for _ in range(10):
             x = random.randint(0, WORLD_WIDTH)
             y = random.randint(0, WORLD_HEIGHT)
             size = random.randint(10, 20)
-            self.rocks.append({'x': x, 'y': y, 'size': size})
+            self.rock_check = size
+            self.rocks.append({'x': x, 'y': y, 'size': size, 'vaule': self.rock_check, 'cut': pygame.time.get_ticks()})
         
     def draw(self, screen, camera):        
         for tree in self.trees:
@@ -139,17 +140,63 @@ class Terrain:
         for tree in self.trees:
             if ((tree['x']-x)**2+(tree['y']-y)**2) < (tree['size'])**2:
                 tree['size'] -= 2
-    def grow_tree(self):
-        for tree in self.trees:
-            if tree['size'] <= tree['size']/2:
+            if tree['size'] <= tree['vaule']/2:
                 tree['size'] = 0
-                self.cut_at = pygame.time.get_ticks()
-            if pygame.time.get_ticks-self.cut_at > 60000:
-                tree['size'] = random.randint(15,30)
+                tree['cut'] = pygame.time.get_ticks()
+        for rock in self.rocks:
+            if ((rock['x']-x)**2+(rock['y']-y)**2) < (rock['size'])**2:
+                rock['size'] -= 1
+            if rock['size'] <= rock['vaule']/2:
+                rock['size'] = 0
+                rock['cut'] = pygame.time.get_ticks()
+    def grow_terrain(self):
+        for tree in self.trees:    
+            if pygame.time.get_ticks()-tree['cut'] > 60000 and tree["size"] == 0:
+                tree['size'] = tree['vaule']
+        for rock in self.rocks:    
+            if pygame.time.get_ticks()-rock['cut'] > 60000 and rock["size"] == 0:
+                rock['size'] = rock['vaule']
+
+class Minimap:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+        self.scale = MINIMAP_SIZE / max(WORLD_WIDTH, WORLD_HEIGHT)
+    
+    def draw(self, screen, player, zombies, terrain):
+        pygame.draw.rect(screen, BLACK, (self.x - 2, self.y - 2, MINIMAP_SIZE + 4, MINIMAP_SIZE + 4))
+        pygame.draw.rect(screen, WHITE, (self.x, self.y, MINIMAP_SIZE, MINIMAP_SIZE))
+        
+        for tree in terrain.trees:
+            mini_x = int(tree['x'] * self.scale) + self.x
+            mini_y = int(tree['y'] * self.scale) + self.y
+            pygame.draw.circle(screen, DARK_GREEN, (mini_x, mini_y), 2)
+        
+        for rock in terrain.rocks:
+            mini_x = int(rock['x'] * self.scale) + self.x
+            mini_y = int(rock['y'] * self.scale) + self.y
+            pygame.draw.circle(screen, GRAY, (mini_x, mini_y), 1)
+        
+        if zombies != None:
+            for zombie in zombies:
+                mini_x = int(zombie.x * self.scale) + self.x
+                mini_y = int(zombie.y * self.scale) + self.y
+                color = ORANGE if zombie.following_player else RED
+                pygame.draw.circle(screen, color, (mini_x, mini_y), 3)
+            
+        player_mini_x = int(player.x * self.scale) + self.x
+        player_mini_y = int(player.y * self.scale) + self.y
+        pygame.draw.circle(screen, BLUE, (player_mini_x, player_mini_y), 4)
+        mini_fire_x = (WORLD_WIDTH/2*self.scale)+self.x
+        mini_fire_y = (WORLD_HEIGHT/2*self.scale)+self.y
+        pygame.draw.circle(screen, ORANGE, (mini_fire_x, mini_fire_y), 8, 3)
+
+
 def find_safe_spawn_location(terrain, size):
     max_attempts = 100
     for _ in range(max_attempts):
         x = random.randint(size + 50, WORLD_WIDTH - size - 50)
+
         y = random.randint(size + 50, WORLD_HEIGHT - size - 50)
         
         collision = False
@@ -178,6 +225,7 @@ def main():
     
     camera = Camera()
     terrain = Terrain()
+    minimap = Minimap(SCREEN_WIDTH-MINIMAP_SIZE, 2)
     
     player_x, player_y = find_safe_spawn_location(terrain, 20)
     player = Player(player_x, player_y)
@@ -195,16 +243,16 @@ def main():
                     x += camera.x
                     y += camera.y
                     terrain.terrain_damage_handler(player, x, y)
-                    terrain.grow_tree()        
+                           
         keys = pygame.key.get_pressed()
-                        
+        terrain.grow_terrain()                 
         player.update(keys, terrain)
         camera.update(player.x, player.y)       
                
         screen.fill(GREEN)
         
         terrain.draw(screen, camera)
-        
+        minimap.draw(screen, player, None, terrain)
         for projectile in projectiles:
             projectile.draw(screen, camera)
                        
