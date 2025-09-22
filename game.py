@@ -44,7 +44,9 @@ class Player:
         self.speed = 5
         self.color = BLUE
         self.run = False
-                    
+        self.wood = 0
+        self.stones = 0
+
     def update(self, keys, terrain):
         old_x, old_y = self.x, self.y
         new_x, new_y = self.x, self.y
@@ -85,7 +87,8 @@ class Player:
 
         if ((self.x-(WORLD_WIDTH/2))**2+(self.y-(WORLD_HEIGHT/2))**2) < (terrain.fire_size+(self.size))**2:
             self.x = old_x
-            self.y = old_y                            
+            self.y = old_y
+                                  
 
         self.x = max(self.size, min(self.x, WORLD_WIDTH - self.size))
         self.y = max(self.size, min(self.y, WORLD_HEIGHT - self.size))
@@ -99,7 +102,7 @@ class Terrain:
     def __init__(self):
         self.trees = []
         self.rocks = []
-        self.fire_size = 25
+        self.fire_size = 25     
         
         # Reduced terrain - only 10% of original trees and 10% of rocks
         for _ in range(10):
@@ -135,19 +138,29 @@ class Terrain:
         pygame.draw.circle(screen, ORANGE, (int(screen_x), int(screen_y)), self.fire_size)
         pygame.draw.circle(screen, YELLOW, (int(screen_x), int(screen_y)), self.fire_size-7)
         pygame.draw.circle(screen, WHITE, (int(screen_x), int(screen_y)), self.fire_size*4, 2)
+    
+    def fuel_fire(self, x, y, player):
+        if ((WORLD_HEIGHT/2-x)**2+(WORLD_WIDTH/2-y)**2) < (self.fire_size)**2:
+            if player.wood >= 1:
+                player.wood -= 1
+                self.fire_size += 1
+
+
         
     def terrain_damage_handler(self, player, x, y):
         for tree in self.trees:
             if ((tree['x']-x)**2+(tree['y']-y)**2) < (tree['size'])**2:
                 tree['size'] -= 2
-            if tree['size'] <= tree['vaule']/2:
+            if tree['size'] <= tree['vaule']/2 and tree['size'] >= 1:
                 tree['size'] = 0
+                player.wood += 3
                 tree['cut'] = pygame.time.get_ticks()
         for rock in self.rocks:
             if ((rock['x']-x)**2+(rock['y']-y)**2) < (rock['size'])**2:
                 rock['size'] -= 1
-            if rock['size'] <= rock['vaule']/2:
+            if rock['size'] <= rock['vaule']/2 and rock['size'] >= 1:
                 rock['size'] = 0
+                player.stones += 3
                 rock['cut'] = pygame.time.get_ticks()
     def grow_terrain(self):
         for tree in self.trees:    
@@ -156,6 +169,18 @@ class Terrain:
         for rock in self.rocks:    
             if pygame.time.get_ticks()-rock['cut'] > 60000 and rock["size"] == 0:
                 rock['size'] = rock['vaule']
+class Inventory:
+    def __init__(self, screen, player):
+        print('tiropita')
+        self.screen = screen
+        self.player = player
+
+    def draw(self):
+        self.my_font = pygame.font.SysFont('Times New Roman',40)
+        self.text = self.my_font.render(f'Wood:{self.player.wood}', True, DARK_GRAY)
+        self.text2 = self.my_font.render(f'Stone:{self.player.stones}', True, DARK_GRAY)
+        self.screen.blit(self.text, (0,0))
+        self.screen.blit(self.text2, (0,40))
 
 class Minimap:
     def __init__(self, x, y):
@@ -227,9 +252,11 @@ def main():
     terrain = Terrain()
     minimap = Minimap(SCREEN_WIDTH-MINIMAP_SIZE, 2)
     
+    
     player_x, player_y = find_safe_spawn_location(terrain, 20)
     player = Player(player_x, player_y)
-    
+    inventory = Inventory(screen, player)
+
     projectiles = []
       
     running = True
@@ -243,6 +270,8 @@ def main():
                     x += camera.x
                     y += camera.y
                     terrain.terrain_damage_handler(player, x, y)
+                    terrain.fuel_fire(x, y, player)
+                    
                            
         keys = pygame.key.get_pressed()
         terrain.grow_terrain()                 
@@ -253,6 +282,7 @@ def main():
         
         terrain.draw(screen, camera)
         minimap.draw(screen, player, None, terrain)
+        inventory.draw()
         for projectile in projectiles:
             projectile.draw(screen, camera)
                        
