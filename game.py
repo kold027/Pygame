@@ -56,7 +56,6 @@ class Player:
         self.reload_time = 300
         self.shoot_cooldown = 0
         self.shoot_delay = 10
-        self.level = 1
         # New survival features
         self.run = False
         self.wood = 0
@@ -102,12 +101,7 @@ class Player:
         if self.shoot_cooldown > 0:
             self.shoot_cooldown -= 1
 
-        if self.is_reloading:
-            self.reload_timer -= 1
-            if self.reload_timer <= 0:
-                self.current_ammo = self.magazine_size
-                self.is_reloading = False
-
+        
     def check_terrain_collision(self, terrain):
         # Check trees (only if they have size > 0)
         for tree in terrain.trees:
@@ -151,28 +145,15 @@ class Player:
             self.health = max(0, self.health)
 
     def can_shoot(self):
-        return not self.is_reloading and self.current_ammo > 0 and self.shoot_cooldown <= 0
+        return self.stones > 0 and self.shoot_cooldown <= 0
 
     def shoot(self):
         if self.can_shoot():
-            self.current_ammo -= 1
+            self.stones -= 1
             self.shoot_cooldown = self.shoot_delay
-
-            if self.current_ammo == 0:
-                self.reload()
-
+            
             return True
         return False
-
-    def reload(self):
-        if not self.is_reloading and self.current_ammo < self.magazine_size:
-            self.is_reloading = True
-            self.reload_timer = self.reload_time
-
-    def level_up(self):
-        self.level += 1
-        self.magazine_size += 2
-        self.current_ammo = self.magazine_size
 
     def draw(self, screen, camera):
         screen_x = self.x - camera.x
@@ -190,7 +171,7 @@ class Zombie:
         self.x = x
         self.y = y
         self.size = 15
-        self.speed = 1.5 + (wave - 1) * 0.3
+        self.speed = 1
         self.color = RED
         self.direction_x = random.choice([-1, 1])
         self.direction_y = random.choice([-1, 1])
@@ -453,7 +434,7 @@ class Projectile:
             screen_x = self.x - camera.x
             screen_y = self.y - camera.y
             if 0 <= screen_x <= SCREEN_WIDTH and 0 <= screen_y <= SCREEN_HEIGHT:
-                pygame.draw.circle(screen, YELLOW, (int(screen_x), int(screen_y)), self.size)
+                pygame.draw.circle(screen, DARK_GRAY, (int(screen_x), int(screen_y)), self.size)
 
 
 class Inventory:
@@ -548,24 +529,13 @@ def draw_ui(screen, player, wave):
     ammo_text = small_font.render(f"Ammo: {player.current_ammo}/{player.magazine_size}", True, ammo_color)
     screen.blit(ammo_text, (10, 60))
 
-    level_text = small_font.render(f"Level: {player.level}", True, WHITE)
-    screen.blit(level_text, (10, 85))
-
+    
     # Show controls
     controls_text = small_font.render("Left Click: Shoot/Harvest  Right Click: Fuel Fire  R: Reload  Shift: Run", True,
                                       WHITE)
     screen.blit(controls_text, (10, SCREEN_HEIGHT - 25))
 
-    if player.is_reloading:
-        reload_progress = 1 - (player.reload_timer / player.reload_time)
-        reload_text = small_font.render("RELOADING...", True, YELLOW)
-        screen.blit(reload_text, (10, 110))
-
-        reload_bar_width = 100
-        reload_bar_height = 8
-        pygame.draw.rect(screen, BLACK, (9, 132, reload_bar_width + 2, reload_bar_height + 2))
-        pygame.draw.rect(screen, YELLOW, (10, 133, int(reload_bar_width * reload_progress), reload_bar_height))
-
+    
 
 def spawn_wave(wave_number, terrain):
     zombie_count = 5 + (wave_number - 1) * 3
@@ -627,9 +597,7 @@ def main():
 
     current_wave = 1
     zombies = spawn_wave(current_wave, terrain)
-    wave_complete = False
-    wave_complete_timer = 0
-
+    
     running = True
     while running:
         mouse_x, mouse_y = pygame.mouse.get_pos()
@@ -674,19 +642,6 @@ def main():
         player.update(keys, terrain)
         camera.update(player.x, player.y)
 
-        # Wave management
-        if len(zombies) == 0 and not wave_complete:
-            wave_complete = True
-            wave_complete_timer = 120
-
-        if wave_complete:
-            wave_complete_timer -= 1
-            if wave_complete_timer <= 0:
-                current_wave += 1
-                player.level_up()
-                zombies = spawn_wave(current_wave, terrain)
-                wave_complete = False
-
         # Update projectiles
         for projectile in projectiles[:]:
             projectile.update()
@@ -723,16 +678,6 @@ def main():
         draw_health_bar(screen, player)
         draw_ui(screen, player, current_wave)
         inventory.draw()
-
-        if wave_complete:
-            font = pygame.font.Font(None, 48)
-            complete_text = font.render(f"Wave {current_wave - 1} Complete!", True, YELLOW)
-            text_rect = complete_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2))
-            screen.blit(complete_text, text_rect)
-
-            next_wave_text = font.render(f"Preparing Wave {current_wave}...", True, ORANGE)
-            next_rect = next_wave_text.get_rect(center=(SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2 + 60))
-            screen.blit(next_wave_text, next_rect)
 
         pygame.display.flip()
         clock.tick(60)

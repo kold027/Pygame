@@ -53,7 +53,9 @@ class Player:
         self.reload_time = 300
         self.shoot_cooldown = 0
         self.shoot_delay = 10
-        self.level = 1
+        self.run = False
+        self.wood = 0
+        self.stones = 0
     
     def update(self, keys, terrain):
         old_x, old_y = self.x, self.y
@@ -67,6 +69,16 @@ class Player:
             new_x -= self.speed
         if keys[pygame.K_d] or keys[pygame.K_RIGHT]:
             new_x += self.speed
+        if keys[pygame.K_LSHIFT]:
+            self.run = True
+        else:
+            self.run = False
+                       
+        if self.run == True:
+            self.speed = 10
+        else:
+            self.speed = 5
+
         
         # Try moving on X axis only
         self.x = new_x
@@ -93,16 +105,19 @@ class Player:
                 self.current_ammo = self.magazine_size
                 self.is_reloading = False
     
-    def check_terrain_collision(self, terrain):
+    def check_terrain_collision(self, terrain, player):
         for tree in terrain.trees:
-            distance = math.sqrt((self.x - tree['x'])**2 + (self.y - tree['y'])**2)
-            if distance < self.size + tree['size']:
-                return True
-        
+            if ((self.x-tree['x'])**2+(self.y-tree['y'])**2) < (tree['size']+(self.size))**2:
+                self.x = player.old_x
+                self.y = player.old_y 
+
         for rock in terrain.rocks:
-            distance = math.sqrt((self.x - rock['x'])**2 + (self.y - rock['y'])**2)
-            if distance < self.size + rock['size']:
-                return True
+            if ((self.x-rock['x'])**2+(self.y-rock['y'])**2) < (rock['size']+(self.size))**2:
+                self.x = player.old_x
+                self.y = player.old_y
+
+        if ((self.x-(WORLD_WIDTH/2))**2+(self.y-(WORLD_HEIGHT/2))**2) < (terrain.fire_size+(self.size))**2:
+            self.x = player.old_x
         
         for building in terrain.buildings:
             # Check collision with rectangular building
