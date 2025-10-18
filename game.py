@@ -10,6 +10,7 @@ SCREEN_HEIGHT = 768
 WORLD_WIDTH = 2000
 WORLD_HEIGHT = 2000
 MINIMAP_SIZE = 150
+DAY_COUNTER = 1
 
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
@@ -366,7 +367,7 @@ class Terrain:
         fire_distance = math.sqrt((x - WORLD_WIDTH / 2) ** 2 + (y - WORLD_HEIGHT / 2) ** 2)
         if fire_distance < self.fire_size and player.wood >= 1:
             player.wood -= 1
-            self.fire_size += 1
+            self.fire_size += 0.5
 
     def terrain_damage_handler(self, player, x, y):
         # Handle tree harvesting
@@ -398,9 +399,9 @@ class Terrain:
             if current_time - tree['cut'] > 60000 and tree['size'] == 0:
                 tree['size'] = tree['value']
 
-        # Regrow rocks after 60 seconds
+        # Regrow rocks after 45 seconds
         for rock in self.rocks:
-            if current_time - rock['cut'] > 60000 and rock['size'] == 0:
+            if current_time - rock['cut'] > 45000 and rock['size'] == 0:
                 rock['size'] = rock['value']
 
 
@@ -447,10 +448,8 @@ class Inventory:
         wood_text = font.render(f'Wood: {self.player.wood}', True, WHITE)
         stone_text = font.render(f'Stone: {self.player.stones}', True, WHITE)
 
-        # Draw background for better visibility
-        pygame.draw.rect(self.screen, BLACK, (5, 140, 120, 50))
-        self.screen.blit(wood_text, (10, 145))
-        self.screen.blit(stone_text, (10, 165))
+        self.screen.blit(wood_text, (10, 40))
+        self.screen.blit(stone_text, (10, 65))
 
 
 class Minimap:
@@ -513,32 +512,30 @@ def draw_health_bar(screen, player):
     pygame.draw.rect(screen, RED, (bar_x, bar_y, bar_width, bar_height))
     pygame.draw.rect(screen, GREEN, (bar_x, bar_y, int(bar_width * health_ratio), bar_height))
 
-    font = pygame.font.Font(None, 24)
-    health_text = font.render(f"Health: {player.health}/{player.max_health}", True, WHITE)
-    screen.blit(health_text, (bar_x, bar_y + bar_height + 5))
-
 
 def draw_ui(screen, player, wave):
     font = pygame.font.Font(None, 32)
     small_font = pygame.font.Font(None, 24)
+    big_font = pygame.font.SysFont("Times New Roman", 35)
 
     wave_text = font.render(f"Wave: {wave}", True, WHITE)
     screen.blit(wave_text, (SCREEN_WIDTH - 150, 10))
 
-    ammo_color = RED if player.current_ammo == 0 else WHITE
-    ammo_text = small_font.render(f"Ammo: {player.current_ammo}/{player.magazine_size}", True, ammo_color)
-    screen.blit(ammo_text, (10, 60))
+    # Show Day Counter
+    controls_text = big_font.render(f"Day {DAY_COUNTER}", True, WHITE)
+    screen.blit(controls_text, (SCREEN_WIDTH/2-35, 10)) 
 
-    
+       
+        
     # Show controls
-    controls_text = small_font.render("Left Click: Shoot/Harvest  Right Click: Fuel Fire  R: Reload  Shift: Run", True,
+    controls_text = small_font.render("Left Click: Harvest/Fuel  Right Click: Shoot  Shift: Run", True,
                                       WHITE)
     screen.blit(controls_text, (10, SCREEN_HEIGHT - 25))
 
     
 
 def spawn_wave(wave_number, terrain):
-    zombie_count = 5 + (wave_number - 1) * 3
+    zombie_count = 5 + (wave_number - 1) * 2
     zombies = []
 
     for _ in range(zombie_count):
@@ -582,7 +579,7 @@ def find_safe_spawn_location(terrain, size):
 
 def main():
     screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-    pygame.display.set_caption("Enhanced Zombie Survival Game")
+    pygame.display.set_caption("Survival Forest Game")
     clock = pygame.time.Clock()
 
     camera = Camera()
@@ -597,34 +594,39 @@ def main():
 
     current_wave = 1
     zombies = spawn_wave(current_wave, terrain)
-    
+
+    day_timer = pygame.time.get_ticks()    
     running = True
+    if day_timer >= 180000:
+        DAY_COUNTER+=current_wave
+        day_timer = pygame.time.get_ticks()
+        
+
     while running:
         mouse_x, mouse_y = pygame.mouse.get_pos()
+
+        if len(zombies) == 0:
+                current_wave+=1
+                zombies = spawn_wave(current_wave, terrain)
+                
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
             elif event.type == pygame.MOUSEBUTTONDOWN:
-                if event.button == 1:  # Left click
+                if event.button == 3:  # Left click
                     world_mouse_x = mouse_x + camera.x
                     world_mouse_y = mouse_y + camera.y
 
                     # Try to shoot first
                     if player.shoot():
                         projectiles.append(Projectile(player.x, player.y, world_mouse_x, world_mouse_y))
-                    else:
-                        # If can't shoot, harvest resources
-                        terrain.terrain_damage_handler(player, world_mouse_x, world_mouse_y)
-
-                elif event.button == 3:  # Right click - fuel fire
+                        
+                elif event.button == 1:  # Right click
                     world_mouse_x = mouse_x + camera.x
                     world_mouse_y = mouse_y + camera.y
                     terrain.fuel_fire(world_mouse_x, world_mouse_y, player)
-
-            elif event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_r:
-                    player.reload()
+                    terrain.terrain_damage_handler(player, world_mouse_x, world_mouse_y)
 
         keys = pygame.key.get_pressed()
 
@@ -652,6 +654,7 @@ def main():
         for zombie in zombies[:]:
             zombie.update(player, terrain)
 
+           
             for projectile in projectiles[:]:
                 if projectile.active:
                     distance = math.sqrt((projectile.x - zombie.x) ** 2 + (projectile.y - zombie.y) ** 2)
