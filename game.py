@@ -500,6 +500,18 @@ class Minimap:
         pygame.draw.circle(screen, BLUE, (player_mini_x, player_mini_y), 4)
 
 
+class Store:
+    def __init__(self, screen, player):
+        self.screen = screen
+        self.player = player
+
+    def draw_store(self, screen):
+        self.surface = pygame.Surface((MINIMAP_SIZE+10, SCREEN_HEIGHT-210),pygame.SRCALPHA)
+        pygame.draw.rect(self.surface, (0, 0, 0, 191), (0, 0, MINIMAP_SIZE+10, SCREEN_HEIGHT-210))
+        self.screen.blit(self.surface,(860, 180))
+        
+
+
 def draw_health_bar(screen, player):
     bar_width = 200
     bar_height = 20
@@ -588,6 +600,8 @@ def main():
     player_x, player_y = find_safe_spawn_location(terrain, 20)
     player = Player(player_x, player_y)
 
+    store = Store(screen, player)
+
     inventory = Inventory(screen, player)
     minimap = Minimap(SCREEN_WIDTH - MINIMAP_SIZE - 10, 10)
     projectiles = []
@@ -614,15 +628,16 @@ def main():
             if event.type == pygame.QUIT:
                 running = False
             elif event.type == pygame.MOUSEBUTTONDOWN:
-                if event.button == 3:  # Left click
+                if event.button == 3:  # Right click
                     world_mouse_x = mouse_x + camera.x
                     world_mouse_y = mouse_y + camera.y
+                    
 
                     # Try to shoot first
                     if player.shoot():
                         projectiles.append(Projectile(player.x, player.y, world_mouse_x, world_mouse_y))
                         
-                elif event.button == 1:  # Right click
+                elif event.button == 1:  # Left click
                     world_mouse_x = mouse_x + camera.x
                     world_mouse_y = mouse_y + camera.y
                     terrain.fuel_fire(world_mouse_x, world_mouse_y, player)
@@ -678,6 +693,7 @@ def main():
         player.draw(screen, camera)
 
         minimap.draw(screen, player, zombies, terrain)
+        store.draw_store(screen)
         draw_health_bar(screen, player)
         draw_ui(screen, player, current_wave)
         inventory.draw()
