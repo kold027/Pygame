@@ -515,7 +515,23 @@ class Store:
         self.surface = pygame.Surface((MINIMAP_SIZE+10, SCREEN_HEIGHT-210),pygame.SRCALPHA)
         pygame.draw.rect(self.surface, (0, 0, 0, 191), (0, 0, MINIMAP_SIZE+10, SCREEN_HEIGHT-210))
         self.screen.blit(self.surface,(860, 180))
-        
+        store_font = pygame.font.SysFont('Baskerville', 24)
+        SS_store = store_font.render('Sharpened Stone', True, WHITE)
+        screen.blit(SS_store, (870, 190))
+        SS_store = store_font.render('2 stones', True, WHITE)
+        screen.blit(SS_store, (870, 210))
+        Spr_store = store_font.render('Spear', True, WHITE)
+        screen.blit(Spr_store, (870, 260))
+        Spr_store = store_font.render('5 wood , 3 stones', True, WHITE)
+        screen.blit(Spr_store, (870, 280))
+
+    def buy(self, mouse_x, mouse_y):
+        SSbt_store = pygame.Rect(860,180,150,50)
+        if SSbt_store.collidepoint(mouse_x, mouse_y):
+            print('IT WORKED')  
+        Sprbt_store = pygame.Rect(860,250,150,50)
+        if Sprbt_store.collidepoint(mouse_x, mouse_y):
+            print('IT WORKED')  
 
 
 def draw_health_bar(screen, player):
@@ -615,6 +631,8 @@ def main():
     current_wave = 1
     zombies = spawn_wave(current_wave, terrain)
 
+    amount = 30
+
     running = True
     
     is_day = True
@@ -660,6 +678,8 @@ def main():
                     world_mouse_y = mouse_y + camera.y
                     terrain.fuel_fire(world_mouse_x, world_mouse_y, player)
                     terrain.terrain_damage_handler(player, world_mouse_x, world_mouse_y)
+                    #print(mouse_x,mouse_y)
+                    store.buy(mouse_x, mouse_y)
 
         keys = pygame.key.get_pressed()
 
@@ -692,7 +712,7 @@ def main():
                 if projectile.active:
                     distance = math.sqrt((projectile.x - zombie.x) ** 2 + (projectile.y - zombie.y) ** 2)
                     if distance < projectile.size + zombie.size:
-                        if zombie.take_damage(30):
+                        if zombie.take_damage(amount):
                             zombies.remove(zombie)
                         projectiles.remove(projectile)
                         break
