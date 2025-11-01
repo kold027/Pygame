@@ -10,7 +10,6 @@ SCREEN_HEIGHT = 768
 WORLD_WIDTH = 2000
 WORLD_HEIGHT = 2000
 MINIMAP_SIZE = 150
-DAY_COUNTER = 1
 
 WHITE = (255, 255, 255)
 BLACK = (0, 0, 0)
@@ -24,6 +23,7 @@ ORANGE = (255, 165, 0)
 YELLOW = (255, 255, 0)
 DARK_GRAY = (64, 64, 64)
 LIGHT_GRAY = (192, 192, 192)
+DDARK_GREEN = (0, 50, 3)
 
 
 class Camera:
@@ -240,7 +240,7 @@ class Zombie:
 
         # Check fire collision
         fire_distance = math.sqrt((self.x - WORLD_WIDTH / 2) ** 2 + (self.y - WORLD_HEIGHT / 2) ** 2)
-        if fire_distance < self.size + terrain.fire_size:
+        if fire_distance < self.size + terrain.fire_size*4:
             return True
 
         # Check buildings
@@ -321,7 +321,7 @@ class Terrain:
             if math.sqrt((x - WORLD_WIDTH / 2) ** 2 + (y - WORLD_HEIGHT / 2) ** 2) > 100:
                 self.buildings.append({'x': x, 'y': y, 'width': width, 'height': height})
 
-    def draw(self, screen, camera):
+    def draw(self, screen, camera, is_day):
         # Draw buildings first
         for building in self.buildings:
             screen_x = building['x'] - camera.x - building['width'] // 2
@@ -345,7 +345,10 @@ class Terrain:
                 screen_y = tree['y'] - camera.y
                 if -tree['size'] <= screen_x <= SCREEN_WIDTH + tree['size'] and -tree[
                     'size'] <= screen_y <= SCREEN_HEIGHT + tree['size']:
-                    pygame.draw.circle(screen, DARK_GREEN, (int(screen_x), int(screen_y)), tree['size'])
+                    if is_day == True:
+                        pygame.draw.circle(screen, DARK_GREEN, (int(screen_x), int(screen_y)), tree['size'])
+                    else:
+                        pygame.draw.circle(screen, DDARK_GREEN, (int(screen_x), int(screen_y)), tree['size'])
 
         # Draw rocks (only if they have size > 0)
         for rock in self.rocks:
@@ -354,7 +357,10 @@ class Terrain:
                 screen_y = rock['y'] - camera.y
                 if -rock['size'] <= screen_x <= SCREEN_WIDTH + rock['size'] and -rock[
                     'size'] <= screen_y <= SCREEN_HEIGHT + rock['size']:
-                    pygame.draw.circle(screen, GRAY, (int(screen_x), int(screen_y)), rock['size'])
+                    if is_day == True:
+                        pygame.draw.circle(screen, GRAY, (int(screen_x), int(screen_y)), rock['size'])
+                    else:
+                        pygame.draw.circle(screen, DARK_GRAY, (int(screen_x), int(screen_y)), rock['size'])
 
         # Draw fire
         screen_x = (WORLD_WIDTH / 2) - camera.x
@@ -525,7 +531,7 @@ def draw_health_bar(screen, player):
     pygame.draw.rect(screen, GREEN, (bar_x, bar_y, int(bar_width * health_ratio), bar_height))
 
 
-def draw_ui(screen, player, wave):
+def draw_ui(screen, player, wave, DAY_COUNTER):
     font = pygame.font.Font(None, 32)
     small_font = pygame.font.Font(None, 24)
     big_font = pygame.font.SysFont("Times New Roman", 35)
@@ -609,15 +615,27 @@ def main():
     current_wave = 1
     zombies = spawn_wave(current_wave, terrain)
 
-    day_timer = pygame.time.get_ticks()    
     running = True
-    if day_timer >= 180000:
-        DAY_COUNTER+=current_wave
-        day_timer = pygame.time.get_ticks()
-        
-
+    
+    is_day = True
+    last_day =  pygame.time.get_ticks()
+    last_night = pygame.time.get_ticks() 
+    DAY_COUNTER = 1
     while running:
         mouse_x, mouse_y = pygame.mouse.get_pos()
+        
+        day_timer = pygame.time.get_ticks()    
+
+        if day_timer-last_day >= 120000:
+            DAY_COUNTER+=current_wave
+            last_day = pygame.time.get_ticks()
+
+        if day_timer-last_night >= 60000 and is_day == True:
+            is_day = False
+            last_night = pygame.time.get_ticks()
+        elif day_timer-last_night >= 60000 and is_day == False:
+            is_day = True
+            last_night = pygame.time.get_ticks()
 
         if len(zombies) == 0:
                 current_wave+=1
@@ -680,9 +698,12 @@ def main():
                         break
 
         # Draw everything
-        screen.fill(GREEN)
+        if is_day == True:
+            screen.fill(GREEN)
+        else:
+            screen.fill(DARK_GREEN)
 
-        terrain.draw(screen, camera)
+        terrain.draw(screen, camera, is_day)
 
         for projectile in projectiles:
             projectile.draw(screen, camera)
@@ -695,7 +716,7 @@ def main():
         minimap.draw(screen, player, zombies, terrain)
         store.draw_store(screen)
         draw_health_bar(screen, player)
-        draw_ui(screen, player, current_wave)
+        draw_ui(screen, player, current_wave, DAY_COUNTER)
         inventory.draw()
 
         pygame.display.flip()
