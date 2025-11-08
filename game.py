@@ -61,6 +61,7 @@ class Player:
         self.run = False
         self.wood = 0
         self.stones = 0
+        self.weapon = 'None'
 
     def update(self, keys, terrain):
         old_x, old_y = self.x, self.y
@@ -412,7 +413,7 @@ class Terrain:
 
 
 class Projectile:
-    def __init__(self, x, y, target_x, target_y):
+    def __init__(self, x, y, target_x, target_y, player):
         self.x = x
         self.y = y
         self.size = 3
@@ -427,6 +428,7 @@ class Projectile:
             self.direction_x = 1
             self.direction_y = 0
         self.active = True
+        self.player = player
 
     def update(self):
         if self.active:
@@ -441,8 +443,12 @@ class Projectile:
             screen_x = self.x - camera.x
             screen_y = self.y - camera.y
             if 0 <= screen_x <= SCREEN_WIDTH and 0 <= screen_y <= SCREEN_HEIGHT:
-                pygame.draw.circle(screen, DARK_GRAY, (int(screen_x), int(screen_y)), self.size)
-
+                if self.player.weapon == "Spear":
+                    pygame.draw.circle(screen, BROWN, (int(screen_x), int(screen_y)), self.size)
+                elif self.player.weapon == "Gun":
+                    pygame.draw.circle(screen, YELLOW, (int(screen_x), int(screen_y)), self.size*1.5)
+                else:
+                    pygame.draw.circle(screen, DARK_GRAY, (int(screen_x), int(screen_y)), self.size)
 
 class Inventory:
     def __init__(self, screen, player):
@@ -524,14 +530,25 @@ class Store:
         screen.blit(Spr_store, (870, 260))
         Spr_store = store_font.render('5 wood , 3 stones', True, WHITE)
         screen.blit(Spr_store, (870, 280))
+        SS_store = store_font.render('Gun', True, WHITE)
+        screen.blit(SS_store, (870, 330))
+        SS_store = store_font.render('10 stone', True, WHITE)
+        screen.blit(SS_store, (870, 350))
 
     def buy(self, mouse_x, mouse_y):
         SSbt_store = pygame.Rect(860,180,150,50)
-        if SSbt_store.collidepoint(mouse_x, mouse_y):
-            print('IT WORKED')  
+        if SSbt_store.collidepoint(mouse_x, mouse_y) and self.player.stones >= 2:
+            self.player.stones -=   2
+            self.player.weapon = 'Sharpend Stone'
         Sprbt_store = pygame.Rect(860,250,150,50)
-        if Sprbt_store.collidepoint(mouse_x, mouse_y):
-            print('IT WORKED')  
+        if Sprbt_store.collidepoint(mouse_x, mouse_y)and self.player.wood >= 5 and self.player.stones >= 3:
+            self.player.wood -= 5
+            self.player.stones -= 3
+            self.player.weapon = 'Spear'  
+        Gbt_store = pygame.Rect(860,320,150,50)
+        if Gbt_store.collidepoint(mouse_x, mouse_y)and self.player.stones >= 1:
+            self.player.stones -= 1
+            self.player.weapon = 'Gun'  
 
 
 def draw_health_bar(screen, player):
@@ -631,7 +648,14 @@ def main():
     current_wave = 1
     zombies = spawn_wave(current_wave, terrain)
 
-    amount = 30
+    if player.weapon == 'None':
+        amount = 30
+    elif player.weapon == 'Sharpend stone':
+        amount = 60
+    elif player.weapon == 'Spear':
+        amount = 70
+    elif player.weapon == 'Gun':
+        amount = 100
 
     running = True
     
@@ -659,6 +683,14 @@ def main():
                 current_wave+=1
                 zombies = spawn_wave(current_wave, terrain)
                 
+        if player.weapon == 'None':
+            amount = 30
+        elif player.weapon == 'Sharpend stone':
+            amount = 60
+        elif player.weapon == 'Spear':
+            amount = 70
+        elif player.weapon == 'Gun':
+            amount = 100
 
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -667,11 +699,12 @@ def main():
                 if event.button == 3:  # Right click
                     world_mouse_x = mouse_x + camera.x
                     world_mouse_y = mouse_y + camera.y
-                    
+                    if player.weapon == "Gun" and player.stones > 0:
+                        player.take_damage(1/4)
 
                     # Try to shoot first
                     if player.shoot():
-                        projectiles.append(Projectile(player.x, player.y, world_mouse_x, world_mouse_y))
+                        projectiles.append(Projectile(player.x, player.y, world_mouse_x, world_mouse_y, player))
                         
                 elif event.button == 1:  # Left click
                     world_mouse_x = mouse_x + camera.x
@@ -714,7 +747,8 @@ def main():
                     if distance < projectile.size + zombie.size:
                         if zombie.take_damage(amount):
                             zombies.remove(zombie)
-                        projectiles.remove(projectile)
+                        if player.weapon != 'Spear':
+                            projectiles.remove(projectile)
                         break
 
         # Draw everything
